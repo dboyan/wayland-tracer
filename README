@@ -1,0 +1,24 @@
+What is wayland-tracer
+
+wayland-tracer is a protocol dumper for Wayland. It can be used to
+trace what's on the wire between the compositor and client.
+
+Building wayland-tracer
+
+Building wayland-tracer is quite simple, it doesn't have many
+dependencies, it even doesn't require libwayland (although it borrows
+some code from that).
+
+    $ git clone https://github.com/dboyan/wayland-tracer.git
+    $ cd wayland-tracer
+    $ ./autogen.sh --prefix=PREFIX
+    $ make
+    $ make install
+
+and you have wayland-tracer.
+
+Using wayland-tracer
+
+To use wayland-tracer, you first need to have a running wayland
+compositor. You can use it to trace single or multiple clients under
+that. See the output of `wayland-tracer -h` for details.
