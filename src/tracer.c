@@ -84,6 +84,7 @@ struct tracer {
 	int32_t epollfd;
 	int next_id;
 	struct wl_list instance_list;
+	struct wl_list protocol_list;
 	FILE *outfp;
 };
 
@@ -92,6 +93,12 @@ struct tracer_options {
 	char **spawn_args;
 	char *socket;
 	const char *outfile;
+	struct wl_list protocol_file_list;
+};
+
+struct protocol_file {
+	const char *loc;
+	struct wl_list link;
 };
 
 static void
@@ -532,7 +539,25 @@ usage(void)
 		"\t\t\tand make the name of server socket NAME (such as\n"
 		"\t\t\twayland-0)\n"
 		"  -o FILE\t\tDump output to FILE\n"
+		"  -d FILE\t\tSpecify a xml protocol file\n"
 		"  -h\t\t\tThis help message\n\n");
+}
+
+static int
+tracer_add_protocol(struct tracer_options *options, const char *file)
+{
+	struct protocol_file *protocol_file;
+
+	protocol_file = malloc(sizeof *protocol_file);
+	if (protocol_file == NULL) {
+		fprintf(stderr, "Failed to alloc for protocol: %m\n");
+		return -1;
+	}
+
+	protocol_file->loc = file;
+	wl_list_insert(&options->protocol_file_list, &protocol_file->link);
+
+	return 0;
 }
 
 static struct tracer_options*
@@ -549,6 +574,7 @@ tracer_parse_args(int argc, char *argv[])
 
 	options->spawn_args = NULL;
 	options->mode = TRACER_MODE_SINGLE;
+	wl_list_init(&options->protocol_file_list);
 
 	if (argc == 1) {
 		usage();
@@ -582,6 +608,14 @@ tracer_parse_args(int argc, char *argv[])
 				exit(EXIT_FAILURE);
 			}
 			options->outfile = argv[i];
+		} else if (!strcmp(argv[i], "-d")) {
+			i++;
+			if (i == argc) {
+				fprintf(stderr, "Protocol file not specfied\n");
+				exit(EXIT_FAILURE);
+			}
+			if (tracer_add_protocol(options, argv[i]) != 0)
+				exit(EXIT_FAILURE);
 		} else {
 			fprintf(stderr, "Unknown argument '%s'\n", argv[i]);
 			usage();
