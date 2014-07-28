@@ -525,8 +525,8 @@ static void
 usage(void)
 {
 	fprintf(stderr, "wayland-tracer: a wayland protocol dumper\n"
-		"Usage:\twayland-tracer -- file ...\n"
-		"\twayland-tracer -S NAME\n\n"
+		"Usage:\twayland-tracer [OPTIONS] -- file ...\n"
+		"\twayland-tracer -S NAME [OPTIONS]\n\n"
 		"Options:\n\n"
 		"  -S NAME\t\tMake wayland-tracer run under server mode\n"
 		"\t\t\tand make the name of server socket NAME (such as\n"
