@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -83,13 +84,25 @@ struct tracer {
 	int32_t epollfd;
 	int next_id;
 	struct wl_list instance_list;
+	FILE *outfp;
 };
 
 struct tracer_options {
 	int mode;
 	char **spawn_args;
 	char *socket;
+	const char *outfile;
 };
+
+static void
+tracer_print(struct tracer *tracer, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vfprintf(tracer->outfp, fmt, ap);
+	va_end(ap);
+}
 
 static int
 tracer_dump_bin(struct tracer_connection *connection)
@@ -99,6 +112,7 @@ tracer_dump_bin(struct tracer_connection *connection)
 	struct wl_connection *wl_conn= connection->wl_conn;
 	struct tracer_connection *peer = connection->peer;
 	struct tracer_instance *instance = connection->instance;
+	struct tracer *tracer = instance->tracer;
 
 	len = wl_buffer_size(&wl_conn->in);
 	if (len == 0)
@@ -106,12 +120,13 @@ tracer_dump_bin(struct tracer_connection *connection)
 
 	wl_connection_copy(wl_conn, buf, len);
 
-	printf("%d: %s Data dumped: %d bytes:\n", instance->id,
-	       connection->side == TRACER_SERVER_SIDE ? "=>" : "<=", len);
-	for (i = 0; i < len; i++) {
-		printf("%02x ", (unsigned char)buf[i]);
-	}
-	printf("\n");
+	tracer_print(tracer, "%d: %s Data dumped: %d bytes:\n",
+		     instance->id,
+	             connection->side == TRACER_SERVER_SIDE ? "=>" : "<=",
+		     len);
+	for (i = 0; i < len; i++)
+		tracer_print(tracer, "%02x ", (unsigned char)buf[i]);
+	tracer_print(tracer, "\n");
 	wl_connection_consume(wl_conn, len);
 	wl_connection_write(peer->wl_conn, buf, len);
 
@@ -121,14 +136,14 @@ tracer_dump_bin(struct tracer_connection *connection)
 	fdlen /= sizeof(int32_t);
 
 	if (fdlen != 0)
-		printf("%d Fds in control data:", fdlen);
+		tracer_print(tracer, "%d Fds in control data:", fdlen);
 
 	for (i = 0; i < fdlen; i++) {
 		fd = ((int *) buf)[i];
-		printf("%d ", fd);
+		tracer_print(tracer, "%d ", fd);
 		wl_connection_put_fd(peer->wl_conn, fd);
 	}
-	printf("\n");
+	tracer_print(tracer, "\n");
 
 	wl_conn->fds_in.tail += fdlen * sizeof(int32_t);
 	wl_connection_flush(peer->wl_conn);
@@ -516,6 +531,7 @@ usage(void)
 		"  -S NAME\t\tMake wayland-tracer run under server mode\n"
 		"\t\t\tand make the name of server socket NAME (such as\n"
 		"\t\t\twayland-0)\n"
+		"  -o FILE\t\tDump output to FILE\n"
 		"  -h\t\t\tThis help message\n\n");
 }
 
@@ -559,6 +575,13 @@ tracer_parse_args(int argc, char *argv[])
 			}
 			options->spawn_args = &argv[i];
 			break;
+		} else if (!strcmp(argv[i], "-o")) {
+			i++;
+			if (i == argc) {
+				fprintf(stderr, "Output file not specified\n");
+				exit(EXIT_FAILURE);
+			}
+			options->outfile = argv[i];
 		} else {
 			fprintf(stderr, "Unknown argument '%s'\n", argv[i]);
 			usage();
@@ -588,6 +611,17 @@ tracer_create(struct tracer_options *options)
 		return NULL;
 	}
 
+	if (options->outfile != NULL) {
+		tracer->outfp = fopen(options->outfile, "w");
+		if (tracer->outfp == NULL) {
+			fprintf(stderr,
+				"Failed to open output file %s: %m\n",
+				options->outfile);
+			exit(EXIT_FAILURE);
+		}
+	} else
+		tracer->outfp = stdout;
+
 	wl_list_init(&tracer->instance_list);
 	tracer->next_id = 0;
 	// Spawn child if we're in single mode
@@ -607,6 +641,7 @@ tracer_create(struct tracer_options *options)
 
 		if (pid == 0) {
 			close(sock_vec[0]);
+			fclose(tracer->outfp);
 			sprintf(sockfdstr, "%d", sock_vec[1]);
 			setenv("WAYLAND_SOCKET", sockfdstr, 1);
 
