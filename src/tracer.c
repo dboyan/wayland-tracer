@@ -715,6 +715,11 @@ main(int argc, char *argv[])
 
 	tracer = tracer_create(options);
 
+	if (tracer == NULL) {
+		fprintf(stderr, "Failed to create tracer, exiting!\n");
+		exit(EXIT_FAILURE);
+	}
+
 	ret = tracer_run(tracer);
 
 	if (ret == 0)
