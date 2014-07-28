@@ -286,6 +286,9 @@ tracer_instance_create(struct tracer *tracer, int clientfd)
 	else
 		serverfd = tracer_connect_to_socket(NULL);
 
+	if (serverfd < 0)
+		goto err_server;
+
 	instance->server_conn = tracer_connection_create(serverfd,
 							 TRACER_SERVER_SIDE);
 	if (instance->server_conn == NULL)
@@ -312,7 +315,14 @@ tracer_instance_create(struct tracer *tracer, int clientfd)
 	wl_list_insert(&tracer->instance_list, &instance->link);
 	return 0;
 
+err_server:
+	close(clientfd);
+	free(instance);
+	return -1;
+
 err_conn:
+	close(clientfd);
+	close(serverfd);
 	free(instance);
 	return -1;
 }
