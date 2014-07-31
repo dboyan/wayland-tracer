@@ -50,12 +50,16 @@
 #define TRACER_MODE_SINGLE 0
 #define TRACER_MODE_SERVER 1
 
+#define TRACER_OUTPUT_RAW 0
+#define TRACER_OUTPUT_INTERPRET 1
+
 #ifndef UNIX_PATH_MAX
 #define UNIX_PATH_MAX 108
 #endif
 
 #define LOCK_SUFFIX ".lock"
 #define LOCK_SUFFIXLEN 5
+
 struct tracer;
 struct tracer_instance;
 
@@ -65,6 +69,8 @@ struct tracer_connection {
 	struct tracer_instance *instance;
 	int side;
 };
+
+typedef int (*tracer_dump_func)(struct tracer_connection *, int);
 
 struct tracer_instance {
 	int id;
@@ -90,10 +96,12 @@ struct tracer {
 	struct wl_list instance_list;
 	struct wl_interface **interfaces;
 	FILE *outfp;
+	tracer_dump_func dumper;
 };
 
 struct tracer_options {
 	int mode;
+	int output_format;
 	char **spawn_args;
 	char *socket;
 	const char *outfile;
@@ -532,12 +540,13 @@ static void
 tracer_handle_data(struct tracer_connection *connection)
 {
 	int total, rem, size;
+	struct tracer *tracer = connection->instance->tracer;
 	struct tracer_connection *peer = connection->peer;
 
 	total = wl_connection_read(connection->wl_conn);
 
 	for (rem = total; rem >= 8; rem -= size) {
-		size = tracer_dump_analyzed(connection, rem);
+		size = tracer->dumper(connection, rem);
 		if (size == 0)
 			break;
 	}
@@ -734,6 +743,8 @@ usage(void)
 		"\t\t\tand make the name of server socket NAME (such as\n"
 		"\t\t\twayland-0)\n"
 		"  -o FILE\t\tDump output to FILE\n"
+		"  -t FORMAT\t\tChoose dump format\n"
+		"\t\t\tAvailable formats include:raw(default), interpret\n"
 		"  -h\t\t\tThis help message\n\n");
 }
 
@@ -751,6 +762,7 @@ tracer_parse_args(int argc, char *argv[])
 
 	options->spawn_args = NULL;
 	options->mode = TRACER_MODE_SINGLE;
+	options->output_format = TRACER_OUTPUT_RAW;
 
 	if (argc == 1) {
 		usage();
@@ -784,6 +796,20 @@ tracer_parse_args(int argc, char *argv[])
 				exit(EXIT_FAILURE);
 			}
 			options->outfile = argv[i];
+		} else if (!strcmp(argv[i], "-t")) {
+			i++;
+			if (i == argc) {
+				fprintf(stderr, "Output format not specified\n");
+				exit(EXIT_FAILURE);
+			}
+			if (!strcmp(argv[i], "raw"))
+				options->output_format = TRACER_OUTPUT_RAW;
+			else if (!strcmp(argv[i], "interpret"))
+				options->output_format = TRACER_OUTPUT_INTERPRET;
+			else {
+				fprintf(stderr, "Unknown format %s\n", argv[i]);
+				exit(EXIT_FAILURE);
+			}
 		} else {
 			fprintf(stderr, "Unknown argument '%s'\n", argv[i]);
 			usage();
@@ -827,6 +853,10 @@ tracer_create(struct tracer_options *options)
 	wl_list_init(&tracer->instance_list);
 	tracer->next_id = 0;
 	tracer->interfaces = core_interfaces;
+	if (options->output_format == TRACER_OUTPUT_INTERPRET)
+		tracer->dumper = tracer_dump_analyzed;
+	else
+		tracer->dumper = tracer_dump_bin;
 	// Spawn child if we're in single mode
 	if (options->mode == TRACER_MODE_SINGLE) {
 		tracer->socket = NULL;
