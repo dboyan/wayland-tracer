@@ -379,3 +379,24 @@ wl_connection_put_fd(struct wl_connection *connection, int32_t fd)
 
 	return wl_buffer_put(&connection->fds_out, &fd, sizeof fd);
 }
+
+
+int
+arg_count_for_signature(const char *signature)
+{
+	int count = 0;
+	for(; *signature; ++signature) {
+		switch(*signature) {
+		case 'i':
+		case 'u':
+		case 'f':
+		case 's':
+		case 'o':
+		case 'n':
+		case 'a':
+		case 'h':
+			++count;
+		}
+	}
+	return count;
+}
