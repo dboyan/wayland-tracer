@@ -220,6 +220,7 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 	char buf[4096];
 	uint32_t *p = (uint32_t *) buf + 2;
 	struct tracer_connection *peer = connection->peer;
+	struct tracer_instance *instance = connection->instance;
 	struct tracer *tracer = connection->instance->tracer;
 	struct wl_interface *type;
 
@@ -229,10 +230,9 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 
 	count = arg_count_for_signature(message->signature);
 
-	if (connection->side == TRACER_CLIENT_SIDE)
-		tracer_print(tracer, "<=");
-	else
-		tracer_print(tracer, "=>");
+	tracer_print(tracer, "%d: %s ", instance->id,
+		     connection->side == TRACER_CLIENT_SIDE ? "<=" : "=>");
+
 	tracer_print(tracer, "%s@%u.%s(", target->name, id, message->name);
 
 	signature = message->signature;
