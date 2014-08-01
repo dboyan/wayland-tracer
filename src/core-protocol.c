@@ -169,7 +169,7 @@ static const struct wl_interface wl_display_interface = {
 };
 
 static const struct wl_message wl_registry_requests[] = {
-	{ "bind", "usun", types + 0 },
+	{ "bind", "uN", types + 0 },
 };
 
 static const struct wl_message wl_registry_events[] = {

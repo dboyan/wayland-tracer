@@ -184,6 +184,7 @@ get_next_argument(const char *signature, struct argument_details *details)
 		case 'n':
 		case 'a':
 		case 'h':
+		case 'N':
 			details->type = *signature;
 			return signature + 1;
 		case '?':
@@ -192,6 +193,27 @@ get_next_argument(const char *signature, struct argument_details *details)
 	}
 	details->type = '\0';
 	return signature;
+}
+
+int
+arg_count_for_signature_new(const char *signature)
+{
+	int count = 0;
+	for(; *signature; ++signature) {
+		switch(*signature) {
+		case 'i':
+		case 'u':
+		case 'f':
+		case 's':
+		case 'o':
+		case 'n':
+		case 'a':
+		case 'h':
+		case 'N':
+			++count;
+		}
+	}
+	return count;
 }
 
 static struct wl_interface *
@@ -218,11 +240,11 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 			uint32_t id,
 			const struct wl_message *message)
 {
-	uint32_t length, new_id;
+	uint32_t length, new_id, name;
 	int fd;
 	unsigned int i, count;
 	const char *signature;
-	char *tmpstr;
+	char *type_name;
 	struct argument_details arg;
 	char buf[4096];
 	uint32_t *p = (uint32_t *) buf + 2;
@@ -234,7 +256,7 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 	if (target == NULL)
 		goto finish;
 
-	count = arg_count_for_signature(message->signature);
+	count = arg_count_for_signature_new(message->signature);
 
 	if (connection->side == TRACER_CLIENT_SIDE)
 		tracer_print(tracer, "<=");
@@ -261,7 +283,6 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 			break;
 		case 's':
 			length = *p++;
-			tmpstr = (char *)p;
 
 			if (length == 0)
 				tracer_print(tracer, "\"\"");
@@ -278,12 +299,7 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 			new_id = *p++;
 			if (new_id != 0) {
 				wl_map_reserve_new(objects, new_id);
-			}
-			if (message->types[0] != NULL) {
 				wl_map_insert_at(objects, 0, new_id, message->types[0]);
-			} else {
-				type = tracer_lookup_interface(tracer, tmpstr);
-				wl_map_insert_at(objects, 0, new_id, type);
 			}
 			tracer_print(tracer, "new_id %u", new_id);
 			break;
@@ -299,6 +315,25 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 			connection->wl_conn->fds_in.tail += sizeof fd;
 			tracer_print(tracer, "fd %d", fd);
 			wl_connection_put_fd(peer->wl_conn, fd);
+			break;
+		case 'N': /* N = sun */
+			length = *p++;
+			if (length != 0)
+				type_name = (char *) p;
+			else
+				type_name = NULL;
+			p = p + DIV_ROUNDUP(length, sizeof *p);
+
+			name = *p++;
+
+			new_id = *p++;
+			if (new_id != 0) {
+				wl_map_reserve_new(objects, new_id);
+				type = tracer_lookup_interface(tracer, type_name);
+				wl_map_insert_at(objects, 0, new_id, type);
+			}
+			tracer_print(tracer, "new_id %u[%s,%u]",
+				     new_id, type_name, name);
 			break;
 		}
 	}
