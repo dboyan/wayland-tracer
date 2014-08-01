@@ -14,7 +14,9 @@ wayland_tracer_SOURCES =		\
 	src/wayland-os.c		\
 	src/wayland-util.c		\
 	src/wayland-util.h		\
-	src/wayland-private.h
+	src/wayland-private.h		\
+	src/core-protocol.c		\
+	src/core-protocol.h
 
 AM_CPPFLAGS =				\
 	-I$(top_builddir)/src		\
