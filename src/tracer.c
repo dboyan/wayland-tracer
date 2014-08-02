@@ -40,7 +40,7 @@
 #include "wayland-os.h"
 #include "wayland-private.h"
 #include "wayland-util.h"
-#include "core-protocol.h"
+#include "tracer-analyzer.h"
 
 #define DIV_ROUNDUP(n, a) ( ((n) + ((a) - 1)) / (a) )
 
@@ -95,7 +95,7 @@ struct tracer {
 	int next_id;
 	struct wl_list instance_list;
 	struct wl_list protocol_list;
-	struct wl_interface **interfaces;
+	struct tracer_analyzer *analyzer;
 	FILE *outfp;
 	tracer_dump_func dumper;
 };
@@ -216,10 +216,10 @@ arg_count_for_signature_new(const char *signature)
 	return count;
 }
 
-static struct wl_interface *
+static struct tracer_interface *
 tracer_lookup_interface(struct tracer *tracer, const char *name)
 {
-	struct wl_interface **types = tracer->interfaces;
+	struct tracer_interface **types = tracer->analyzer->interfaces;
 	int i;
 
 	if (types == NULL)
@@ -236,9 +236,9 @@ static int
 tracer_analyze_protocol(struct tracer_connection *connection,
 			uint32_t size,
 			struct wl_map *objects,
-			struct wl_interface *target,
+			struct tracer_interface *target,
 			uint32_t id,
-			const struct wl_message *message)
+			struct tracer_message *message)
 {
 	uint32_t length, new_id, name;
 	int fd;
@@ -250,7 +250,7 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 	uint32_t *p = (uint32_t *) buf + 2;
 	struct tracer_connection *peer = connection->peer;
 	struct tracer *tracer = connection->instance->tracer;
-	struct wl_interface *type;
+	struct tracer_interface *type;
 
 	wl_connection_copy(connection->wl_conn, buf, size);
 	if (target == NULL)
@@ -352,8 +352,8 @@ tracer_dump_analyzed(struct tracer_connection *connection, int len)
 	uint32_t p[2], id;
 	int opcode, size;
 	struct tracer_instance *instance = connection->instance;
-	struct wl_interface *interface;
-	const struct wl_message *message;
+	struct tracer_interface *interface;
+	struct tracer_message *message;
 
 	wl_connection_copy(connection->wl_conn, p, sizeof p);
 	id = p[0];
@@ -366,9 +366,9 @@ tracer_dump_analyzed(struct tracer_connection *connection, int len)
 
 	if (interface != NULL) {
 		if (connection->side == TRACER_SERVER_SIDE)
-			message = &interface->events[opcode];
+			message = interface->events[opcode];
 		else
-			message = &interface->methods[opcode];
+			message = interface->methods[opcode];
 	}
 
 	tracer_analyze_protocol(connection, size, &instance->map,
@@ -536,8 +536,11 @@ tracer_instance_create(struct tracer *tracer, int clientfd)
 
 	wl_map_init(&instance->map, WL_MAP_CLIENT_SIDE);
 
-	wl_map_insert_new(&instance->map, 0, NULL);
-	wl_map_insert_new(&instance->map, 0, tracer->interfaces[0]);
+	if (tracer->analyzer != NULL) {
+		wl_map_insert_new(&instance->map, 0, NULL);
+		wl_map_insert_new(&instance->map, 0,
+				  tracer->analyzer->display_interface);
+	}
 
 	tracer_epoll_add_fd(tracer, serverfd, instance->server_conn);
 	tracer_epoll_add_fd(tracer, clientfd, instance->client_conn);
@@ -901,6 +904,7 @@ tracer_create(struct tracer_options *options)
 	pid_t pid;
 	struct tracer *tracer;
 	char sockfdstr[12];
+	struct protocol_file *file;
 
 	tracer = malloc(sizeof *tracer);
 	if (tracer == NULL) {
@@ -921,7 +925,25 @@ tracer_create(struct tracer_options *options)
 
 	wl_list_init(&tracer->instance_list);
 	tracer->next_id = 0;
-	tracer->interfaces = core_interfaces;
+	if (options->output_format == TRACER_OUTPUT_INTERPRET) {
+		tracer->analyzer = tracer_analyzer_create();
+		if (tracer->analyzer == NULL) {
+			fprintf(stderr, "failed to create analyzer");
+			exit(EXIT_FAILURE);
+		}
+		wl_list_for_each(file, &options->protocol_file_list, link) {
+			if (tracer_analyzer_add_protocol(tracer->analyzer,
+							 file->loc) != 0) {
+				fprintf(stderr, "failed to add file %s\n",
+					file->loc);
+				exit(EXIT_FAILURE);
+			}
+		}
+		if (tracer_analyzer_finalize(tracer->analyzer) != 0) {
+			exit(EXIT_FAILURE);
+		}
+	}
+
 	if (options->output_format == TRACER_OUTPUT_INTERPRET)
 		tracer->dumper = tracer_dump_analyzed;
 	else

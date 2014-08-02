@@ -11,12 +11,13 @@ wayland_tracer = $(top_builddir)/wayland-tracer
 wayland_tracer_SOURCES =		\
 	src/connection.c		\
 	src/tracer.c			\
+	src/tracer-analyzer.c		\
+	src/tracer-analyzer.h		\
 	src/wayland-os.c		\
 	src/wayland-util.c		\
 	src/wayland-util.h		\
-	src/wayland-private.h		\
-	src/core-protocol.c		\
-	src/core-protocol.h
+	src/wayland-private.h
+wayland_tracer_LDADD = $(EXPAT_LIBS)
 
 AM_CPPFLAGS =				\
 	-I$(top_builddir)/src		\
