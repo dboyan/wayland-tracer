@@ -29,6 +29,7 @@ LT_PREREQ([2.2])
 LT_INIT
 
 PKG_PROG_PKG_CONFIG()
+PKG_CHECK_MODULES(EXPAT, [expat])
 
 if test "x$GCC" = "xyes"; then
 	GCC_CFLAGS="-Wall -Wextra -Wno-used-parameter -g -Wscrict-prototypes -Wmissing-prototypes -fvisibility=hidden"
