@@ -788,9 +788,9 @@ usage(void)
 		"\t\t\tand make the name of server socket NAME (such as\n"
 		"\t\t\twayland-0)\n"
 		"  -o FILE\t\tDump output to FILE\n"
-		"  -d FILE\t\tSpecify a xml protocol file\n"
-		"  -t FORMAT\t\tChoose dump format\n"
-		"\t\t\tAvailable formats include:raw(default), interpret\n"
+		"  -d FILE\t\tAdd an xml protocol file\n"
+		"\t\t\twayland-tracer will output readable format according\n"
+		"\t\t\tto the protocols given if -d is specified\n"
 		"  -h\t\t\tThis help message\n\n");
 }
 
@@ -868,20 +868,7 @@ tracer_parse_args(int argc, char *argv[])
 			}
 			if (tracer_add_protocol(options, argv[i]) != 0)
 				exit(EXIT_FAILURE);
-		} else if (!strcmp(argv[i], "-t")) {
-			i++;
-			if (i == argc) {
-				fprintf(stderr, "Output format not specified\n");
-				exit(EXIT_FAILURE);
-			}
-			if (!strcmp(argv[i], "raw"))
-				options->output_format = TRACER_OUTPUT_RAW;
-			else if (!strcmp(argv[i], "interpret"))
-				options->output_format = TRACER_OUTPUT_INTERPRET;
-			else {
-				fprintf(stderr, "Unknown format %s\n", argv[i]);
-				exit(EXIT_FAILURE);
-			}
+			options->output_format = TRACER_OUTPUT_INTERPRET;
 		} else {
 			fprintf(stderr, "Unknown argument '%s'\n", argv[i]);
 			usage();

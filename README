@@ -28,9 +28,10 @@ compositor. The most basic use is:
 
 which launches the program specified and dumps binary data. If you have
 XML protocol files and want wayland-tracer to interpret wire data to
-readable format, you can use:
+readable format, you can use -d parameter to specifiy XML protocol files
+(at least wayland core protocol is needed):
 
-    $ wayland-tracer -t interpret -d wayland.xml [-d more-protocols] \
+    $ wayland-tracer -d wayland.xml [-d more-protocols] \
     >     -- PROGRAM [ARGS ...]
 
 wayland-tracer will interpret the protocol according to xml definition.
