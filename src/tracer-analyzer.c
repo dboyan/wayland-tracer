@@ -407,6 +407,7 @@ tracer_analyzer_finalize(struct tracer_analyzer *analyzer)
 	int count, message_count, i, j;
 	struct tracer_interface *interface;
 	struct tracer_interface **interfaces;
+	struct tracer_interface **display_type;
 	struct tracer_message **messages;
 	struct tracer_message *message;
 
@@ -475,11 +476,12 @@ tracer_analyzer_finalize(struct tracer_analyzer *analyzer)
 		}
 	}
 
-	analyzer->display_interface = *lookup_type(analyzer, "wl_display");
-	if (analyzer->display_interface == NULL) {
+	display_type = lookup_type(analyzer, "wl_display");
+	if (display_type == NULL) {
 		fprintf(stderr, "You should at least have wl_display!\n");
 		return -1;
 	}
+	analyzer->display_interface = *display_type;
 
 	free(analyzer->ctx);
 
