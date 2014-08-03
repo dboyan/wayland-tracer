@@ -76,6 +76,9 @@ struct tracer_analyzer *tracer_analyzer_create(void);
 int tracer_analyzer_add_protocol(struct tracer_analyzer *analyzer,
 				 const char *filename);
 
+struct tracer_interface **
+tracer_analyzer_lookup_type(struct tracer_analyzer *analyzer, char *type_name);
+
 int tracer_analyzer_finalize(struct tracer_analyzer *analyzer);
 
 

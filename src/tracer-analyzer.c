@@ -347,8 +347,8 @@ tracer_analyzer_add_protocol(struct tracer_analyzer *analyzer,
 	return 0;
 }
 
-static struct tracer_interface **
-lookup_type(struct tracer_analyzer *analyzer, char *type_name)
+struct tracer_interface **
+tracer_analyzer_lookup_type(struct tracer_analyzer *analyzer, char *type_name)
 {
 	struct tracer_interface **types = analyzer->interfaces;
 
@@ -438,8 +438,7 @@ tracer_analyzer_finalize(struct tracer_analyzer *analyzer)
 		j = 0;
 		wl_list_for_each(message, &interface->request_list, link) {
 			messages[j] = message;
-			message->types = lookup_type(analyzer,
-						     message->new_interface_name);
+			message->types = tracer_analyzer_lookup_type(analyzer, message->new_interface_name);
 			if (message->new_interface_name != NULL &&
 			    message->types == NULL) {
 				fprintf(stderr, "interface %s not found\n",
@@ -462,8 +461,7 @@ tracer_analyzer_finalize(struct tracer_analyzer *analyzer)
 		j = 0;
 		wl_list_for_each(message, &interface->event_list, link) {
 			messages[j] = message;
-			message->types = lookup_type(analyzer,
-						     message->new_interface_name);
+			message->types = tracer_analyzer_lookup_type(analyzer, message->new_interface_name);
 			if (message->new_interface_name != NULL &&
 			    message->types == NULL) {
 				fprintf(stderr, "interface %s not found\n",
@@ -476,7 +474,7 @@ tracer_analyzer_finalize(struct tracer_analyzer *analyzer)
 		}
 	}
 
-	display_type = lookup_type(analyzer, "wl_display");
+	display_type = tracer_analyzer_lookup_type(analyzer, "wl_display");
 	if (display_type == NULL) {
 		fprintf(stderr, "You should at least have wl_display!\n");
 		return -1;
