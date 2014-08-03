@@ -216,22 +216,6 @@ arg_count_for_signature_new(const char *signature)
 	return count;
 }
 
-static struct tracer_interface *
-tracer_lookup_interface(struct tracer *tracer, const char *name)
-{
-	struct tracer_interface **types = tracer->analyzer->interfaces;
-	int i;
-
-	if (types == NULL)
-		return NULL;
-
-	for (i = 0; types[i] != NULL; i++)
-		if (!strcmp(types[i]->name, name))
-			return types[i];
-
-	return NULL;
-}
-
 static int
 tracer_analyze_protocol(struct tracer_connection *connection,
 			uint32_t size,
@@ -251,7 +235,9 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 	struct tracer_connection *peer = connection->peer;
 	struct tracer_instance *instance = connection->instance;
 	struct tracer *tracer = connection->instance->tracer;
+	struct tracer_analyzer *analyzer = tracer->analyzer;
 	struct tracer_interface *type;
+	struct tracer_interface **ptype;
 
 	wl_connection_copy(connection->wl_conn, buf, size);
 	if (target == NULL)
@@ -329,7 +315,9 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 			new_id = *p++;
 			if (new_id != 0) {
 				wl_map_reserve_new(objects, new_id);
-				type = tracer_lookup_interface(tracer, type_name);
+				ptype = tracer_analyzer_lookup_type(analyzer,
+								    type_name);
+				type = ptype == NULL ? NULL : *ptype;
 				wl_map_insert_at(objects, 0, new_id, type);
 			}
 			tracer_print(tracer, "new_id %u[%s,%u]",
