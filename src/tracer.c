@@ -170,52 +170,6 @@ tracer_dump_bin(struct tracer_connection *connection, int rlen)
 	return len;
 }
 
-const char *
-get_next_argument(const char *signature, struct argument_details *details)
-{
-	details->nullable = 0;
-	for(; *signature; ++signature) {
-		switch(*signature) {
-		case 'i':
-		case 'u':
-		case 'f':
-		case 's':
-		case 'o':
-		case 'n':
-		case 'a':
-		case 'h':
-		case 'N':
-			details->type = *signature;
-			return signature + 1;
-		case '?':
-			details->nullable = 1;
-		}
-	}
-	details->type = '\0';
-	return signature;
-}
-
-int
-arg_count_for_signature_new(const char *signature)
-{
-	int count = 0;
-	for(; *signature; ++signature) {
-		switch(*signature) {
-		case 'i':
-		case 'u':
-		case 'f':
-		case 's':
-		case 'o':
-		case 'n':
-		case 'a':
-		case 'h':
-		case 'N':
-			++count;
-		}
-	}
-	return count;
-}
-
 static int
 tracer_analyze_protocol(struct tracer_connection *connection,
 			uint32_t size,
@@ -229,7 +183,6 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 	unsigned int i, count;
 	const char *signature;
 	char *type_name;
-	struct argument_details arg;
 	char buf[4096];
 	uint32_t *p = (uint32_t *) buf + 2;
 	struct tracer_connection *peer = connection->peer;
@@ -243,7 +196,7 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 	if (target == NULL)
 		goto finish;
 
-	count = arg_count_for_signature_new(message->signature);
+	count = strlen(message->signature);
 
 	tracer_print(tracer, "%d: %s ", instance->id,
 		     connection->side == TRACER_CLIENT_SIDE ? "<=" : "=>");
@@ -254,9 +207,8 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 	for (i = 0; i < count; i++) {
 		if (i != 0)
 			tracer_print(tracer, ", ");
-		signature = get_next_argument(signature, &arg);
 
-		switch (arg.type) {
+		switch (*signature) {
 		case 'u':
 			tracer_print(tracer, "%u", *p++);
 			break;
@@ -324,6 +276,8 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 				     new_id, type_name, name);
 			break;
 		}
+
+		signature++;
 	}
 
 	printf(")\n");
