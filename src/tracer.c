@@ -280,7 +280,7 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 		signature++;
 	}
 
-	printf(")\n");
+	tracer_print(tracer, ")\n");
 finish:
 	wl_connection_write(peer->wl_conn, buf, size);
 	wl_connection_consume(connection->wl_conn, size);
