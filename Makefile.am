@@ -17,7 +17,7 @@ wayland_tracer_SOURCES =		\
 	src/wayland-util.c		\
 	src/wayland-util.h		\
 	src/wayland-private.h
-wayland_tracer_LDADD = $(EXPAT_LIBS)
+wayland_tracer_LDADD = $(EXPAT_LIBS) -lrt
 
 AM_CPPFLAGS =				\
 	-I$(top_builddir)/src		\

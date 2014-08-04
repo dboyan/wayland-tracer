@@ -34,6 +34,7 @@
 #include <sys/file.h>
 #include <sys/un.h>
 #include <stdint.h>
+#include <time.h>
 #include <errno.h>
 #include <assert.h>
 
@@ -59,6 +60,10 @@
 
 #define LOCK_SUFFIX ".lock"
 #define LOCK_SUFFIXLEN 5
+
+#define tracer_log(...) tracer_log_impl(instance, __VA_ARGS__)
+#define tracer_log_cont(...) tracer_log_cont_impl(instance, __VA_ARGS__)
+#define tracer_log_end() tracer_log_end_impl(instance)
 
 struct tracer;
 struct tracer_instance;
@@ -124,6 +129,52 @@ tracer_print(struct tracer *tracer, const char *fmt, ...)
 	va_end(ap);
 }
 
+static void
+tracer_vprint(struct tracer *tracer, const char *fmt, va_list ap)
+{
+	vfprintf(tracer->outfp, fmt, ap);
+}
+
+static void
+tracer_log_impl(struct tracer_instance *instance, const char *fmt, ...)
+{
+	struct timespec tp;
+	unsigned int time;
+	struct tracer *tracer = instance->tracer;
+	va_list ap;
+
+	clock_gettime(CLOCK_REALTIME, &tp);
+	time = (tp.tv_sec * 1000000L) + (tp.tv_nsec / 1000);
+
+	tracer_print(tracer, "[%10.3f] ", time / 1000.0);
+
+	if (tracer->socket != NULL)
+		tracer_print(tracer, "%d: ", instance->id);
+
+	va_start(ap, fmt);
+	tracer_vprint(tracer, fmt, ap);
+	va_end(ap);
+}
+
+static void
+tracer_log_cont_impl(struct tracer_instance *instance, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	tracer_vprint(instance->tracer, fmt, ap);
+	va_end(ap);
+}
+
+static void
+tracer_log_end_impl(struct tracer_instance *instance)
+{
+	struct tracer *tracer = instance->tracer;
+
+	tracer_print(tracer, "\n");
+	fflush(tracer->outfp);
+}
+
 static int
 tracer_dump_bin(struct tracer_connection *connection, int rlen)
 {
@@ -140,13 +191,12 @@ tracer_dump_bin(struct tracer_connection *connection, int rlen)
 
 	wl_connection_copy(wl_conn, buf, len);
 
-	tracer_print(tracer, "%d: %s Data dumped: %d bytes:\n",
-		     instance->id,
-	             connection->side == TRACER_SERVER_SIDE ? "=>" : "<=",
-		     len);
+	tracer_log("%s Data dumped: %d bytes:\n",
+	           connection->side == TRACER_SERVER_SIDE ? "=>" : "<=",
+		   len);
 	for (i = 0; i < len; i++)
-		tracer_print(tracer, "%02x ", (unsigned char)buf[i]);
-	tracer_print(tracer, "\n");
+		tracer_log_cont("%02x ", (unsigned char)buf[i]);
+	tracer_log_cont("\n");
 	wl_connection_consume(wl_conn, len);
 	wl_connection_write(peer->wl_conn, buf, len);
 
@@ -156,14 +206,14 @@ tracer_dump_bin(struct tracer_connection *connection, int rlen)
 	fdlen /= sizeof(int32_t);
 
 	if (fdlen != 0)
-		tracer_print(tracer, "%d Fds in control data:", fdlen);
+		tracer_log_cont("%d Fds in control data:", fdlen);
 
 	for (i = 0; i < fdlen; i++) {
 		fd = ((int *) buf)[i];
-		tracer_print(tracer, "%d ", fd);
+		tracer_log_cont("%d ", fd);
 		wl_connection_put_fd(peer->wl_conn, fd);
 	}
-	tracer_print(tracer, "\n");
+	tracer_log_end();
 
 	wl_conn->fds_in.tail += fdlen * sizeof(int32_t);
 
@@ -198,40 +248,38 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 
 	count = strlen(message->signature);
 
-	tracer_print(tracer, "%d: %s ", instance->id,
-		     connection->side == TRACER_CLIENT_SIDE ? "<=" : "=>");
-
-	tracer_print(tracer, "%s@%u.%s(", target->name, id, message->name);
+	tracer_log("%s %s@%u.%s(",
+		   connection->side == TRACER_CLIENT_SIDE ? "<=" : "=>",
+		   target->name,
+		   id,
+		   message->name);
 
 	signature = message->signature;
 	for (i = 0; i < count; i++) {
 		if (i != 0)
-			tracer_print(tracer, ", ");
+			tracer_log_cont(", ");
 
 		switch (*signature) {
 		case 'u':
-			tracer_print(tracer, "%u", *p++);
+			tracer_log_cont("%u", *p++);
 			break;
 		case 'i':
-			tracer_print(tracer, "%i", *p++);
+			tracer_log_cont("%i", *p++);
 			break;
 		case 'f':
-			tracer_print(tracer, "%lf",
-				     wl_fixed_to_double(*p++));
+			tracer_log_cont("%lf", wl_fixed_to_double(*p++));
 			break;
 		case 's':
 			length = *p++;
 
 			if (length == 0)
-				tracer_print(tracer, "\"\"");
+				tracer_log_cont("(null)");
 			else
-				tracer_print(tracer,
-					     "\"%s\"",
-					     (char *)p);
+				tracer_log_cont("\"%s\"", (char *) p);
 			p = p + DIV_ROUNDUP(length, sizeof *p);
 			break;
 		case 'o':
-			tracer_print(tracer, "obj %u", *p++);
+			tracer_log_cont("obj %u", *p++);
 			break;
 		case 'n':
 			new_id = *p++;
@@ -239,11 +287,11 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 				wl_map_reserve_new(objects, new_id);
 				wl_map_insert_at(objects, 0, new_id, message->types[0]);
 			}
-			tracer_print(tracer, "new_id %u", new_id);
+			tracer_log_cont("new_id %u", new_id);
 			break;
 		case 'a':
 			length = *p++;
-			tracer_print(tracer, "array");
+			tracer_log_cont("array: %u", length);
 			p = p + DIV_ROUNDUP(length, sizeof *p);
 			break;
 		case 'h':
@@ -251,7 +299,7 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 				       &fd,
 				       sizeof fd);
 			connection->wl_conn->fds_in.tail += sizeof fd;
-			tracer_print(tracer, "fd %d", fd);
+			tracer_log_cont("fd %d", fd);
 			wl_connection_put_fd(peer->wl_conn, fd);
 			break;
 		case 'N': /* N = sun */
@@ -272,15 +320,16 @@ tracer_analyze_protocol(struct tracer_connection *connection,
 				type = ptype == NULL ? NULL : *ptype;
 				wl_map_insert_at(objects, 0, new_id, type);
 			}
-			tracer_print(tracer, "new_id %u[%s,%u]",
-				     new_id, type_name, name);
+			tracer_log_cont("new_id %u[%s,%u]",
+					new_id, type_name, name);
 			break;
 		}
 
 		signature++;
 	}
 
-	tracer_print(tracer, ")\n");
+	tracer_log_cont(")");
+	tracer_log_end();
 finish:
 	wl_connection_write(peer->wl_conn, buf, size);
 	wl_connection_consume(connection->wl_conn, size);
