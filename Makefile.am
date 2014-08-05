@@ -22,3 +22,18 @@ wayland_tracer_LDADD = $(EXPAT_LIBS) -lrt
 AM_CPPFLAGS =				\
 	-I$(top_builddir)/src		\
 	-I$(top_srcdir)/src
+
+man_MANS = wayland-tracer.1
+
+MAN_SUBSTS = 						\
+	-e 's|__version__|$(PACKAGE_VERSION)|g'
+
+SUFFIXES = .1 .man
+
+%.1 : man/%.man
+	$(AM_V_GEN)$(SED) $(MAN_SUBSTS) < $< > $@
+
+EXTRA_DIST =				\
+	man/wayland-tracer.man
+
+CLEANFILES = $(man_MANS)

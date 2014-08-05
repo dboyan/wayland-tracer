@@ -32,3 +32,4 @@ ctags
 Makefile
 Makefile.in
 wayland-tracer
+wayland-tracer.1

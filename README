@@ -37,4 +37,4 @@ readable format, you can use -d parameter to specifiy XML protocol files
 wayland-tracer will interpret the protocol according to xml definition.
 
 For more uses (such as server-mode, output redirecting, etc.), see the
-output of `wayland-tracer -h`.
+output of `wayland-tracer -h` or `man wayland-tracer`.

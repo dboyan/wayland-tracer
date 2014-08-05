@@ -1,0 +1,52 @@
+.TH WAYLAND-TRACER 1 "2014-08-05" "wayland-tracer __version__"
+.SH NAME
+wayland-tracer \- a wire protocol dumper for Wayland
+
+.B SYNOPSIS
+.PP
+.B wayland-tracer
+[OPTIONS] \-\- PROGRAM ARGS
+.PP
+.B wayland-tracer
+\-S SOCKET [OPTIONS]
+
+.SH DESCRIPTION
+
+The \fIwayland-tracer\fP program is a protocol dumper for Wayland.
+It can be used to trace what's on the wire between the compositor
+and client, which can be quite useful for debugging. It can dump
+raw binary data or interpret data to readable format if XML protocol
+definition are provided.
+
+.SH MODES
+
+\fIwayland-tracer\fP runs in two modes, single mode and server mode.
+Single mode is used to trace a single program, and is launched with
+the first form above. While server mode is used to trace multiple
+clients. It listen to a socket specified by -S argument in the second
+form. If you launch an application with WAYLAND_DISPLAY variable set
+identical to the socket name passed to wayland-tracer, the protocol
+data will be traced. Both modes require that you have a running
+compositor and environment variable WAYLAND_DISPLAY properly set when
+you launch \fIwayland-tracer\fP.
+
+.SH OPTIONS
+The following options are supported:
+.TP
+.I "-o FILE"
+Dump output to FILE instead of standard output.
+.TP
+.I "-d FILE"
+Specify a xml protocol file. Multiple protocols can be specified by
+using multiple \-d's.
+.I wayland-tracer
+will try to interpret according to the protocols given. You should
+at least provide core protocol. Note that protocol files are the only
+means in which
+.I wayland-tracer
+can interpret, so if there is a message from an object which implements
+an interface not specified in XML file, the following result is
+unspecified and the program traced may crash.
+.TP
+.I "-h"
+Print help message and exit.
