@@ -360,6 +360,11 @@ tracer_dump_analyzed(struct tracer_connection *connection, int len)
 			message = interface->events[opcode];
 		else
 			message = interface->methods[opcode];
+	} else {
+		tracer_log("Unknown object %u opcode %u, size %u",
+			   id, opcode, size);
+		tracer_log_cont("\nWarning: we can't guarentee the following result");
+		tracer_log_end();
 	}
 
 	tracer_analyze_protocol(connection, size, &instance->map,
