@@ -1,8 +1,8 @@
 AC_PREREQ([2.64])
 
 m4_define([tracer_major_version], [0])
-m4_define([tracer_minor_version], [0])
-m4_define([tracer_micro_version], [90])
+m4_define([tracer_minor_version], [1])
+m4_define([tracer_micro_version], [0])
 m4_define([tracer_version],
 	  [tracer_major_version.tracer_minor_version.tracer_micro_version])
 
