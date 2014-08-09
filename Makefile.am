@@ -10,7 +10,12 @@ bin_PROGRAMS = wayland-tracer
 wayland_tracer = $(top_builddir)/wayland-tracer
 wayland_tracer_SOURCES =		\
 	src/connection.c		\
+	src/frontend-analyze.c		\
+	src/frontend-analyze.h		\
+	src/frontend-bin.c		\
+	src/frontend-bin.h		\
 	src/tracer.c			\
+	src/tracer.h			\
 	src/tracer-analyzer.c		\
 	src/tracer-analyzer.h		\
 	src/wayland-os.c		\
